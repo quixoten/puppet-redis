@@ -119,31 +119,22 @@ class redis::install (
       path    => ['/usr/bin', '/usr/sbin', '/bin', '/sbin'],
       user    => 'root',
       group   => 'root',
+      notify  => Exec['redis::install'],
+    }
+
+    exec { 'redis::install':
+      command     => "make PREFIX=${redis_install_dir} install",
+      refreshonly => true,
+      cwd         => "${redis_build_dir}/redis-${::redis::install::redis_version}/",
+      path        => ['/usr/bin', '/usr/sbin', '/bin', '/sbin'],
+      user        => 'root',
+      group       => 'root',
     }
 
     file { "${redis_build_dir}/redis":
       ensure  => link,
       target  => "${redis_build_dir}/redis-${::redis::install::redis_version}/src/",
-      require => Exec['redis::compile']
-    }
-
-    anchor { 'redis::install':
-      require => File["${redis_build_dir}/redis"],
-    }
-
-    $redis_binaries = [
-      'redis-benchmark',
-      'redis-check-aof',
-      'redis-check-dump',
-      'redis-cli',
-      'redis-sentinel',
-      'redis-server'
-    ]
-
-    redis::installbinary { $redis_binaries:
-      require           => Anchor['redis::install'],
-      redis_build_dir   => $redis_build_dir,
-      redis_install_dir => $redis_install_dir,
+      require => Exec['redis::install']
     }
   }
 }
