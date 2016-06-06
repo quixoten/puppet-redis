@@ -1,3 +1,41 @@
+## 2016-04-08 - 1.8.1 (Bugfix release)
+
+#### Bugfixes:
+
+- (318d2cb) RedHat 7: fix systemd scripts for Server and Sentinel 
+
+## 2016-04-05 - 1.8.0 (Feature/Bugfix release)
+
+#### Features:
+
+- (e37283e) Add the possibility to exclude logrotate
+- (316f492) RedHat 7: add systemd support
+- (316f492) Sentinel: add parameter `sentinel_ip` for binding address
+- (3fdbca0) Server::install: add parameter `download_base` at install class to specify download url of source tar.gz
+- (e47fc28) Gentoo: add support for Gentoo
+
+#### Bugfixes:
+
+- (6dea873) fix source entry for forge api in metadata.json
+
+## 2015-12-02 - 1.7.0 (Feature/Bugfix release)
+
+#### Features:
+
+- (3236f41) #33 add Scientific Linux support
+- (ad5d3c1) #37 Server: add parameters `redis_usesocket` `redis_socket` `redis_socketperm` `redis_memsamples`
+- (edf870b) #31 Server: add parameters `force_rewrite`
+- (e1c2011) #53 Server: add parameters `hash_max_ziplist_entries` and `hash_max_ziplist_value`
+- (f1006e2) #48 Server: add parameters `redis_user` and `redis_group`
+- (42bb23f) #44 Sentinel: explititly define sentinel pidfile
+
+#### Bugfixes:
+
+- (3e920e3) #35 Server: correct usage of `redis_timeout` in servers
+- (f8e44b2) #39 avoid conflicts build-essential
+- (75cffe8) #51 prevent default redis-server from automatically start
+
+
 ## 2015-05-11 - 1.6.0 (Feature/Bugfix release)
 
 #### Features:

@@ -14,17 +14,33 @@
 # [*redis_install_dir*]
 #   The dir to which the newly built redis binaries are copied. Default value is '/usr/bin'.
 #
+# [*redis_user*]
+#   The redis system user. Default value is 'undef', which results to 'root' as system user.
+#
+# [*redis_group*]
+#   The redis system group. Default value is 'undef', which results to 'root' as system group.
+#
+# [*download_base*]
+#   Url where to find the source tar.gz. Default value is 'http://download.redis.io/releases'
+#
 class redis::install (
   $redis_version     = $::redis::params::redis_version,
   $redis_build_dir   = $::redis::params::redis_build_dir,
   $redis_install_dir = $::redis::params::redis_install_dir,
   $redis_package     = $::redis::params::redis_install_package,
-  $download_tool     = $::redis::params::download_tool
+  $download_tool     = $::redis::params::download_tool,
+  $redis_user        = $::redis::params::redis_user,
+  $redis_group       = $::redis::params::redis_group,
+  $download_base     = $::redis::params::download_base,
 ) inherits redis {
   if ( $redis_package == true ) {
     case $::operatingsystem {
       'Debian', 'Ubuntu': {
         package { 'redis-server' : ensure => $redis_version, }
+        service { 'redis-server' :
+          ensure    => stopped,
+          subscribe => Package['redis-server']
+        }
       }
       'Fedora', 'RedHat', 'CentOS', 'OEL', 'OracleLinux', 'Amazon', 'Scientific', 'SLES': {
         package { 'redis' : ensure => $redis_version, }
@@ -35,6 +51,9 @@ class redis::install (
             subscribe => Package['redis'],
           }
         }
+      }
+      'Gentoo': {
+        package { 'dev-db/redis' : ensure => $redis_version, }
       }
       default: {
         fail('The module does not support this OS.')
@@ -48,7 +67,7 @@ class redis::install (
         ensure_packages('build-essential')
         Package['build-essential'] -> Anchor['redis::prepare_build']
       }
-      'Fedora', 'RedHat', 'CentOS', 'OEL', 'OracleLinux', 'Amazon', 'Scientific': {
+      'Fedora', 'RedHat', 'CentOS', 'OEL', 'OracleLinux', 'Amazon', 'Scientific', 'Sles': {
         ensure_packages('make')
         Package['make'] -> Anchor['redis::prepare_build']
         ensure_packages('gcc')
@@ -64,7 +83,7 @@ class redis::install (
     exec { "Make dir ${redis_build_dir}":
       command => "mkdir -p ${redis_build_dir}",
       creates => $redis_build_dir,
-      path    => $::path,
+      path    => ['/usr/bin', '/usr/sbin', '/bin', '/sbin'],
       cwd     => '/',
       user    => 'root',
       group   => 'root',
@@ -75,18 +94,14 @@ class redis::install (
       ensure => directory,
     }
 
-    if $redis_version == $::redis::params::redis_version {
-      $redis_download_url = 'http://download.redis.io/redis-stable.tar.gz'
-    } else {
-      $redis_download_url = "http://download.redis.io/releases/redis-${redis_version}.tar.gz"
-    }
+    $redis_download_url = "${download_base}/redis-${redis_version}.tar.gz"
 
     exec { "Download and untar redis ${redis_version}":
       require => File[$redis_build_dir],
       before  => Anchor['redis::prepare_build'],
       command => "${download_tool} ${redis_download_url} | tar xz",
       creates => "${redis_build_dir}/redis-${::redis::install::redis_version}",
-      path    => $::path,
+      path    => ['/usr/bin', '/usr/sbin', '/bin', '/sbin'],
       cwd     => $redis_build_dir,
       user    => 'root',
       group   => 'root',
@@ -101,7 +116,7 @@ class redis::install (
       command => 'make',
       creates => "${redis_build_dir}/redis-${redis_version}/src/redis-server",
       cwd     => "${redis_build_dir}/redis-${::redis::install::redis_version}/",
-      path    => $::path,
+      path    => ['/usr/bin', '/usr/sbin', '/bin', '/sbin'],
       user    => 'root',
       group   => 'root',
     }

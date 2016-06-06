@@ -15,29 +15,13 @@
 #
 # units are case insensitive so 1GB 1Gb 1gB are all the same.
 
-################################## INCLUDES ###################################
-
-# Include one or more other config files here.  This is useful if you
-# have a standard template that goes to all Redis servers but also need
-# to customize a few per-server settings.  Include files can include
-# other files, so use this wisely.
-#
-# Notice option "include" won't be rewritten by command "CONFIG REWRITE"
-# from admin or Redis Sentinel. Since Redis always uses the last processed
-# line as value of a configuration directive, you'd better put includes
-# at the beginning of this file to avoid overwriting config change at runtime.
-#
-# If instead you are interested in using includes to override configuration
-# options, it is better to use include as the last line.
-#
-# include /path/to/local.conf
-# include /path/to/other.conf
-
-################################ GENERAL  #####################################
-
+<% if @osfamily == 'RedHat' and scope.function_versioncmp([@operatingsystemmajrelease, '7']) >= 0 -%>
+daemonize no
+<% else -%>
 # By default Redis does not run as a daemon. Use 'yes' if you need it.
 # Note that Redis will write a pid file in <%= @redis_pid_dir %>/redis_<%= @redis_name %>.pid when daemonized.
 daemonize yes
+<% end -%>
 
 # When running daemonized, Redis writes a pid file in <%= @redis_pid_dir %>/redis.pid by
 # default. You can specify a custom pid file location here.
@@ -842,11 +826,11 @@ notify-keyspace-events "<%= @notify_keyspace_events %>"
 # small number of entries, and the biggest entry does not exceed a given
 # threshold. These thresholds can be configured using the following directives.
 <% if @redis_2_6_or_greater -%>
-hash-max-ziplist-entries 512
-hash-max-ziplist-value 64
+hash-max-ziplist-entries <%= @hash_max_ziplist_entries %>
+hash-max-ziplist-value <%= @hash_max_ziplist_value %>
 <% else -%>
-hash-max-zipmap-entries 512
-hash-max-zipmap-value 64
+hash-max-zipmap-entries <%= @hash_max_ziplist_entries %>
+hash-max-zipmap-value <%= @hash_max_ziplist_value %>
 <% end -%>
 
 # Similarly to hashes, small lists are also encoded in a special way in order

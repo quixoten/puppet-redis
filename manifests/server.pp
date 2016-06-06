@@ -80,86 +80,119 @@
 # [*tcp_keepalive*]
 #   If non-zero, use SO_KEEPALIVE to send TCP ACKs to clients in absence of
 #   communication. Default: 0
+# [*hash_max_ziplist_entries*]
+#   Threshold for ziplist entries. Default: 512
+# [*hash_max_ziplist_value*]
+#   Threshold for ziplist value. Default: 64
 #
-# [*force_rewrite*]
+# [*redis_run_dir*]
 #
-#   Boolean. Default: `false`
+#   Default: `/var/run/redis`
 #
-#   Configure if the redis config is overwritten by puppet followed by a
-#   redis restart. Since redis automatically rewrite their config since
-#   version 2.8 setting this to `true` will trigger a sentinel restart on each puppet
-#   run with redis 2.8 or later.
+#   Since redis automatically rewrite their config since version 2.8 what conflicts with puppet
+#   the config files created by puppet will be copied to this directory and redis will be started from
+#   this copy.
 #
+# [*manage_logrotate*]
+#   Configure logrotate rules for redis server. Default: true
 define redis::server (
-  $redis_name                  = $name,
-  $redis_memory                = '100mb',
-  $redis_ip                    = '127.0.0.1',
-  $redis_port                  = 6379,
-  $redis_usesocket             = false,
-  $redis_socket                = '/tmp/redis.sock',
-  $redis_socketperm            = 755,
-  $redis_mempolicy             = 'allkeys-lru',
-  $redis_memsamples            = 3,
-  $redis_timeout               = 0,
-  $redis_nr_dbs                = 1,
-  $redis_dbfilename            = 'dump.rdb',
-  $redis_dir                   = '/var/lib',
-  $redis_log_dir               = '/var/log',
-  $redis_pid_dir               = '/var/run',
-  $redis_loglevel              = 'notice',
+  $aof_rewrite_minsize         = 64,
+  $aof_rewrite_percentage      = 100,
+  $appendfsync_on_rewrite      = false,
+  $enabled                     = true,
+  $force_rewrite               = false,
+  $hash_max_ziplist_entries    = 512,
+  $hash_max_ziplist_value      = 64,
+  $manage_logrotate            = true,
+  $masterauth                  = undef,
+  $maxclients                  = undef,
   $notify_keyspace_events      = '',
   $redis_appedfsync            = 'everysec',
-  $running                     = true,
-  $enabled                     = true,
-  $requirepass                 = undef,
-  $maxclients                  = undef,
-  $appendfsync_on_rewrite      = false,
-  $aof_rewrite_percentage      = 100,
-  $aof_rewrite_minsize         = 64,
-  $redis_appendfsync           = 'everysec',
-  $redis_enabled_append_file   = false,
-  $redis_append_file           = undef,
   $redis_append_enable         = false,
-  $slaveof                     = undef,
-  $masterauth                  = undef,
-  $slave_serve_stale_data      = true,
-  $stop_writes_on_bgsave_error = true,
-  $slave_read_only             = true,
-  $repl_timeout                = 60,
+  $redis_append_file           = undef,
+  $redis_appendfsync           = 'everysec',
+  $redis_dbfilename            = 'dump.rdb',
+  $redis_dir                   = '/var/lib',
+  $redis_enabled_append_file   = false,
+  $redis_ip                    = '127.0.0.1',
+  $redis_log_dir               = '/var/log',
+  $redis_loglevel              = 'notice',
+  $redis_memory                = '100mb',
+  $redis_mempolicy             = 'allkeys-lru',
+  $redis_memsamples            = 3,
+  $redis_name                  = $name,
+  $redis_nr_dbs                = 1,
+  $redis_pid_dir               = '/var/run',
+  $redis_port                  = 6379,
+  $redis_run_dir               = '/var/run/redis',
+  $redis_socket                = '/tmp/redis.sock',
+  $redis_socketperm            = 755,
+  $redis_timeout               = 0,
+  $redis_usesocket             = false,
   $repl_ping_slave_period      = 10,
+  $repl_timeout                = 60,
+  $requirepass                 = undef,
+  $running                     = true,
   $save                        = [],
+  $slave_read_only             = true,
+  $slave_serve_stale_data      = true,
+  $slaveof                     = undef,
+  $stop_writes_on_bgsave_error = true,
   $tcp_keepalive               = 0,
-  $force_rewrite               = false,
 ) {
+  $redis_user              = $::redis::install::redis_user
+  $redis_group             = $::redis::install::redis_group
 
   $redis_install_dir = $::redis::install::redis_install_dir
   $redis_init_script = $::operatingsystem ? {
     /(Debian|Ubuntu)/                                          => 'redis/etc/init.d/debian_redis-server.erb',
     /(Fedora|RedHat|CentOS|OEL|OracleLinux|Amazon|Scientific)/ => 'redis/etc/init.d/redhat_redis-server.erb',
     /(SLES)/                                                   => 'redis/etc/init.d/sles_redis-server.erb',
-    default                                                    => UNDEF,
+    /(Gentoo)/                                                 => 'redis/etc/init.d/gentoo_redis-server.erb',
+    default                                                    => undef,
   }
   $redis_2_6_or_greater = versioncmp($::redis::install::redis_version,'2.6') >= 0
 
   # redis conf file
-  file {
-    "/etc/redis_${redis_name}.conf":
+  $conf_file_name = "redis_${redis_name}.conf"
+  $conf_file = "/etc/${conf_file_name}"
+  file { $conf_file:
       ensure  => file,
       content => template('redis/etc/redis.conf.erb'),
-      replace => $force_rewrite,
       require => Class['redis::install'];
   }
 
   # startup script
-  file { "/etc/init.d/redis-server_${redis_name}":
-    ensure  => file,
-    mode    => '0755',
-    content => template($redis_init_script),
-    require => [
-      File["/etc/redis_${redis_name}.conf"],
-      File["${redis_dir}/redis_${redis_name}"]
-    ],
-    notify  => Service["redis-server_${redis_name}"],
+  if ($::osfamily == 'RedHat' and versioncmp($::operatingsystemmajrelease, '7') >=0) {
+    $service_file = "/usr/lib/systemd/system/redis-server_${redis_name}.service"
+    exec { "systemd_service_${redis_name}_preset":
+      command     => "/bin/systemctl preset redis-server_${redis_name}.service",
+      notify      => Service["redis-server_${redis_name}"],
+      refreshonly => true,
+    }
+
+    file { $service_file:
+      ensure  => file,
+      mode    => '0644',
+      content => template('redis/systemd/redis.service.erb'),
+      require => [
+        File[$conf_file],
+        File["${redis_dir}/redis_${redis_name}"]
+      ],
+      notify  => Exec["systemd_service_${redis_name}_preset"],
+    }
+  } else {
+    $service_file = "/etc/init.d/redis-server_${redis_name}"
+    file { $service_file:
+      ensure  => file,
+      mode    => '0755',
+      content => template($redis_init_script),
+      require => [
+        File[$conf_file],
+        File["${redis_dir}/redis_${redis_name}"]
+      ],
+      notify  => Service["redis-server_${redis_name}"],
+    }
   }
 
   # path for persistent data
@@ -176,20 +209,24 @@ define redis::server (
   file { "${redis_dir}/redis_${redis_name}":
     ensure  => directory,
     require => Class['redis::install'],
+    owner   => $redis_user,
+    group   => $redis_group,
   }
 
-  # install and configure logrotate
-  if ! defined(Package['logrotate']) {
-    package { 'logrotate': ensure => installed; }
-  }
+  if ($manage_logrotate == true){
+    # install and configure logrotate
+    if ! defined(Package['logrotate']) {
+      package { 'logrotate': ensure => installed; }
+    }
 
-  file { "/etc/logrotate.d/redis-server_${redis_name}":
-    ensure  => file,
-    content => template('redis/redis_logrotate.conf.erb'),
-    require => [
-      Package['logrotate'],
-      File["/etc/redis_${redis_name}.conf"],
-    ]
+    file { "/etc/logrotate.d/redis-server_${redis_name}":
+      ensure  => file,
+      content => template('redis/redis_logrotate.conf.erb'),
+      require => [
+        Package['logrotate'],
+        File[$conf_file],
+      ]
+    }
   }
 
   # manage redis service
@@ -198,6 +235,7 @@ define redis::server (
     enable     => $enabled,
     hasstatus  => true,
     hasrestart => true,
-    require    => File["/etc/init.d/redis-server_${redis_name}"]
+    require    => File[$service_file],
+    subscribe  => File[$conf_file],
   }
 }

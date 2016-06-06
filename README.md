@@ -22,8 +22,9 @@ This module installs and makes basic configs for multiple redis instances on
 the same node. It installs redis via REPO or from source. (http://redis.io/)
 It also can configure the monitoring server Sentinel.
 
-Github Master: [![Build Status](https://secure.travis-ci.org/echocat/puppet-redis.png?branch=master)](https://travis-ci.org/echocat/puppet-redis)
-
+[![Puppet Forge](http://img.shields.io/puppetforge/v/dwerder/redis.svg)](https://forge.puppetlabs.com/dwerder/redis)
+[![Build Status](https://secure.travis-ci.org/echocat/puppet-redis.png?branch=master)](https://travis-ci.org/echocat/puppet-redis)
+[![Puppet Forge Downloads](http://img.shields.io/puppetforge/dt/dwerder/redis.svg)](https://forge.puppetlabs.com/dwerder/redis)
 
 ##Setup
 
@@ -196,7 +197,7 @@ The redis service(s) are configured with the defined type `redis::server`.
 ####Class: `redis::install`
 
 This class downloads, compiles and installs redis. It does not configure any
-redis services. This is done by defimed type redis::server.
+redis services. This is done by defined type redis::server.
 
 **Parameters within `redis::install`:**
 
@@ -215,6 +216,27 @@ directoy like '/opt/redis-2.8.8/'
 
 Default is '/usr/bin' (string).
 The dir to which the newly built redis binaries are copied.
+
+#####`redis_user`
+
+Redis system user. Default: undef (string)
+Default 'undef' results to 'root' as redis system user
+
+Some redis install packages create the redis system user by default (at 
+least SLES and Ubuntu provide redis install packages).
+Normally the log directory and the pid directory are created also by
+the redis install package. Therefor, these values must be adjusted too.
+
+
+#####`redis_group`
+
+Redis system group. Default: undef (string)
+Default 'undef' results to 'root' as redis system group
+
+#####`download_base`
+
+Url where to find the source tar.gz. 
+Default value is 'http://download.redis.io/releases'
 
 ####Defined Type: `redis::server`
 
@@ -350,6 +372,10 @@ Since redis automatically rewrite their config since
 version 2.8 setting this to `true` will trigger a redis restart on each puppet
 run with redis 2.8 or later.
 
+#####`manage_logrotate`
+
+Configure logrotate rules for redis server. Default: true
+
 ##### High Availability Options
 
 #####`slaveof`
@@ -390,9 +416,13 @@ Name of Redis instance. Default: call name of the function.
 The name is used to create the init script(s), which follows the pattern
 `redis-sentinel_${sentinel_name}`
 
+#####`sentinel_ip`
+
+Listen IP of sentinel. Default: 6379
+
 #####`sentinel_port`
 
-Listen port of Redis. Default: 6379
+Listen port of sentinel. Default: 6379
 
 #####`sentinel_log_dir`
 
@@ -404,6 +434,11 @@ Path for log. Full log path is `sentinel_log_dir`/sentinel_`sentinel_name`.log.
 Default is '/var/run' (string).
 Path for pid file. Full pid file path is `sentinel_pid_dir`/sentinel_`sentinel_name`.pid.
 
+#####`sentinel_run_dir`
+
+Default: `/var/run/redis` (string)
+Since sentinels automatically rewrite their config since version 2.8 the puppet managed config will be copied
+to this directory and than sentinel will start with this copy.
 
 #####`monitors`
 
@@ -442,6 +477,10 @@ Configure if the sentinels config is overwritten by puppet followed by a
 sentinel restart. Since sentinels automatically rewrite their config since
 version 2.8 setting this to `true` will trigger a sentinel restart on each puppet
 run with redis 2.8 or later.
+
+#####`manage_logrotate`
+
+Configure logrotate rules for redis server. Default: true
 
 ##Requirements
 
