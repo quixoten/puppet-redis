@@ -179,7 +179,6 @@ define redis::server (
         File[$conf_file],
         File["${redis_dir}/redis_${redis_name}"]
       ],
-      notify  => Exec["systemd_service_${redis_name}_preset"],
     }
   } else {
     $service_file = "/etc/init.d/redis-server_${redis_name}"
@@ -191,7 +190,6 @@ define redis::server (
         File[$conf_file],
         File["${redis_dir}/redis_${redis_name}"]
       ],
-      notify  => Service["redis-server_${redis_name}"],
     }
   }
 
